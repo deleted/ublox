@@ -49,8 +49,7 @@ class NMEA_Message(object):
         self.fields = []
 
     def emit(self):
-        msg = ','.join(self.fields) + "\r\n"
-        msg += self.checksum()
+        msg = ','.join(self.fields) + self._checksum() + "\r\n"
         return msg
 
     def _checksum(self):
@@ -58,10 +57,10 @@ class NMEA_Message(object):
         checksum = 0
         for char in bytes(msg):
             checksum ^= ord(char)
-        print "Checksum of %s is %s" % (msg, hex(checksum))
+        #print "Checksum of %s is %s" % (msg, hex(checksum))
         return "*" + hex(checksum)[-2:].upper()
 
-class NMEA_SetRateMsg(object):
+class NMEA_SetRateMsg(NMEA_Message):
     def __init__(self, msgtype, rate):
         self.fields = []
         self.fields.append('$PUBX')
@@ -75,3 +74,12 @@ def send(msg):
     p = open(serial_device, 'wb')
     p.write(msg.emit())
     p.close()
+    
+def save(msg, filename):
+    f = open(filename, 'wb')
+    f.write(msg.emit())
+    f.close()
+
+if __name__ == '__main__':
+    m = NMEA_SetRateMsg('GLL',0)
+    print m.emit()
