@@ -61,7 +61,7 @@ class NMEA_Message(object):
         print "Checksum of %s is %s" % (msg, hex(checksum))
         return "*" + hex(checksum)[-2:].upper()
 
-class NMEA_SetRateMsg(object):
+class NMEA_SetRateMsg(NMEA_Message):
     def __init__(self, msgtype, rate):
         self.fields = []
         self.fields.append('$PUBX')
