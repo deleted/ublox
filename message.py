@@ -94,7 +94,6 @@ class NMEA_SetRateMsg(NMEA_Message):
         self.fields.append(str(0))
 
 def read_UBX(device):
-    import pdb; pdb.set_trace()
     timeout_millis = 1000
     byteval = ''
     t0 = datetime.now()
