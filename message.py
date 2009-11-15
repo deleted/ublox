@@ -94,16 +94,18 @@ class NMEA_SetRateMsg(NMEA_Message):
         self.fields.append(str(0))
 
 def read_UBX(device):
-    timeout = 2
+    import pdb; pdb.set_trace()
+    timeout_millis = 1000
     byteval = ''
     t0 = datetime.now()
     while byteval != '\xb5':
-        if (datetime.now() - t0).seconds > timeout:
+        dt = datetime.now() - t0
+        if dt.seconds * 1000 + dt.microseconds / 1000 > timeout_millis:
             return None
         byteval = device.read()
     msg = byteval
     msg += device.read()
-    assert msg[-1] == '\x62'
+    assert msg[-1] == '\x62' # second sync byte
     msg_id = device.read(2) # msg class and ID
     msg += msg_id
     payload_length_bytes = device.read(2)
@@ -124,7 +126,7 @@ def send(msg):
     #p = open(serial_device, 'wb')
     s = serial.Serial(serial_device)
     s.write(msg.emit())
-    output = (read_UBX(s), read_UBX(s))
+    output = (read_UBX(s),read_UBX(s))
     s.close()
     return output
     
