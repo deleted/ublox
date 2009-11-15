@@ -1,5 +1,7 @@
 #!/usr/bin/env python
 import struct
+import serial
+from datetime import datetime
 
 serial_device = '/dev/cu.usbserial-A900adpX'
 
@@ -10,7 +12,10 @@ msgtypes = {
 }
 
 commands = {
+    '':'',
     'CFG-MSG': b'\x06\x01',
+    'CFG-NAV5': b'\x06\x24',
+    'CFG-CFG': b'\x06\x09'
 }
 
 class UBXMessage(object):
@@ -25,6 +30,7 @@ class UBXMessage(object):
         msg = struct.pack('cc', self.sync[0], self.sync[1])
         msg += struct.pack('cc', self.msgid[0], self.msgid[1])
         msg += struct.pack('<h', len(self.payload))
+        msg += self.payload
         msg += self._checksum(msg[2:]) # slice out the sync bytes
         return msg
 
@@ -34,14 +40,29 @@ class UBXMessage(object):
         b = buffer(msg)
         for i in b:
             ck_a += ord(i)
+            ck_a &= 255
             ck_b += ck_a
-        return struct.pack('bb', ck_a, ck_b)
+            ck_b &= 255
+        return struct.pack('BB', ck_a, ck_b)
+
+class UBXPollNav5(UBXMessage):
+    def __init__(self):
+        UBXMessage.__init__(self, 'CFG-NAV5', b'')
 
 class ConfigMessage(UBXMessage):
     def __init__(self, msgtype):
         payload = msgtypes[msgtype]
         command = 'CFG-MSG'
         UBXMessage.__init__(self, command, payload)
+        
+class UBXSaveConfig(UBXMessage):
+    def __init__(self):
+        UBXMessage.__init__(self, 'CFG-CFG', b'')
+        clearmask = '\x00\x00\x00\x00'
+        savemask = '\x0A\x00\x00\x00' # saves msg and nav conf.
+        loadmask = '\x00\x00\x00\x00'
+        self.payload = clearmask + savemask + loadmask
+
 
 class NMEA_Message(object):
     """ Base class for NMEA Messages """
@@ -51,6 +72,8 @@ class NMEA_Message(object):
     def emit(self):
         msg = ','.join(self.fields) + self._checksum() + "\r\n"
         return msg
+    def _str__(self):
+        return self.emit()
 
     def _checksum(self):
         msg = ','.join(self.fields)[1:]
@@ -70,15 +93,46 @@ class NMEA_SetRateMsg(NMEA_Message):
             self.fields.append(str(rate))
         self.fields.append(str(0))
 
+def read_UBX(device):
+    timeout = 2
+    byteval = ''
+    t0 = datetime.now()
+    while byteval != '\xb5':
+        if (datetime.now() - t0).seconds > timeout:
+            return None
+        byteval = device.read()
+    msg = byteval
+    msg += device.read()
+    assert msg[-1] == '\x62'
+    msg_id = device.read(2) # msg class and ID
+    msg += msg_id
+    payload_length_bytes = device.read(2)
+    msg += payload_length_bytes
+    payload_length = struct.unpack('<h', payload_length_bytes)[0]
+    payload = ''
+    for i in range(payload_length):
+        payload += device.read()
+    msg += payload
+    msg += device.read(2) # checksum bytes
+    m = UBXMessage('','')
+    m.msgid = msg_id
+    m.payload = payload
+    return m
+
+
 def send(msg):
-    p = open(serial_device, 'wb')
-    p.write(msg.emit())
-    p.close()
+    #p = open(serial_device, 'wb')
+    s = serial.Serial(serial_device)
+    s.write(msg.emit())
+    output = (read_UBX(s), read_UBX(s))
+    s.close()
+    return output
     
 def save(msg, filename):
     f = open(filename, 'wb')
     f.write(msg.emit())
     f.close()
+
 
 if __name__ == '__main__':
     m = NMEA_SetRateMsg('GLL',0)
