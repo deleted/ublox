@@ -1,0 +1,3 @@
+This is a tool for configuring UBLOX GPS chipsets via the NMEA and UBX serial protocols.  It's fairly quick and dirty, but it does the job.
+
+It requires the pySerial library, which can be found here: http://pyserial.sourceforge.net
