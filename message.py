@@ -2,11 +2,12 @@
 import struct
 import serial
 from datetime import datetime
+import time
 
 #serial_device = '/dev/cu.usbserial-A900adpX'
 serial_device = '/dev/cu.usbserial-FTALEZL0'
 
-debug = 1
+debug = 0
 
 msgtypes = {
     'GLL': b'\xf0\x01',
@@ -47,6 +48,9 @@ class UBXMessage(object):
             ck_b += ck_a
             ck_b &= 255
         return struct.pack('BB', ck_a, ck_b)
+     
+    def __str__(self):
+        return self.emit()
 
 class UBXPollNav5(UBXMessage):
     def __init__(self):
@@ -62,7 +66,7 @@ class UBXSaveConfig(UBXMessage):
     def __init__(self):
         UBXMessage.__init__(self, 'CFG-CFG', b'')
         clearmask = '\x00\x00\x00\x00'
-        savemask = '\x0A\x00\x00\x00' # saves msg and nav conf.
+        savemask = '\x0B\x00\x00\x00' # saves ioPort, msg and nav conf.
         loadmask = '\x00\x00\x00\x00'
         self.payload = clearmask + savemask + loadmask
 
@@ -75,7 +79,7 @@ class NMEA_Message(object):
     def emit(self):
         msg = ','.join(str(f) for f in self.fields) + self._checksum() + "\r\n"
         return msg
-    def _str__(self):
+    def __str__(self):
         return self.emit()
 
     def _checksum(self):
@@ -110,11 +114,11 @@ class NMEA_SetBaudMessage(NMEA_Message):
         ]
 
 def read_UBX(device):
-    def read():
-	x = device.read()
-	if debug and len(x) > 0:
-	    print '[%.6f] %s' % (time.time(), ['%02x' % ord(i) for i in x])
-	return x
+    def myread(n=1, label=''):
+        x = device.read(n)
+        if debug and len(x) > 0:
+            print '[%.6f] %s (%s)' % (time.time(), ' '.join(['%02x' % ord(i) for i in x]), label)
+        return x
     timeout_millis = 1000
     byteval = ''
     t0 = datetime.now()
@@ -145,8 +149,12 @@ def read_UBX(device):
 def send(msg, baudrate=9600):
     #p = open(serial_device, 'wb')
     s = serial.Serial(serial_device, baudrate=baudrate)
-    s.write(msg.emit())
+    msgstr = msg.emit()
+    print "Sending: " + msgstr
+    s.write(msgstr)
     output = (read_UBX(s),read_UBX(s))
+    if output[0] or output[1]:
+        print "Got response: " + str(output)
     s.close()
     return output
     
