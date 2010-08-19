@@ -3,7 +3,8 @@ import struct
 import serial
 from datetime import datetime
 
-serial_device = '/dev/cu.usbserial-A900adpX'
+#serial_device = '/dev/cu.usbserial-A900adpX'
+serial_device = '/dev/cu.usbserial-FTALEZL0'
 
 msgtypes = {
     'GLL': b'\xf0\x01',
@@ -70,13 +71,13 @@ class NMEA_Message(object):
         self.fields = []
 
     def emit(self):
-        msg = ','.join(self.fields) + self._checksum() + "\r\n"
+        msg = ','.join(str(f) for f in self.fields) + self._checksum() + "\r\n"
         return msg
     def _str__(self):
         return self.emit()
 
     def _checksum(self):
-        msg = ','.join(self.fields)[1:]
+        msg = ','.join(str(f) for f in self.fields)[1:]
         checksum = 0
         for char in bytes(msg):
             checksum ^= ord(char)
@@ -99,8 +100,11 @@ class NMEA_SetBaudMessage(NMEA_Message):
         self.fields = [
             '$PUBX', # message ID
             '41', # MSG ID
-            port, #UART Port Num
-            # ...etc
+            port, #UART PortID
+            00007, #inProto bitmask  (this should be a 2-bit mask, but it's 7 in the documentation's example, so I'm leaving it at 7.
+            00003, #outProto bitmask
+            baudrate, #baudrate
+            0, # autobauding (0 or 1)
         ]
 
 def read_UBX(device):
@@ -131,9 +135,9 @@ def read_UBX(device):
     return m
 
 
-def send(msg):
+def send(msg, baudrate=9600):
     #p = open(serial_device, 'wb')
-    s = serial.Serial(serial_device)
+    s = serial.Serial(serial_device, baudrate=baudrate)
     s.write(msg.emit())
     output = (read_UBX(s),read_UBX(s))
     s.close()
