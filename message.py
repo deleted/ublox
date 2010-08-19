@@ -93,6 +93,16 @@ class NMEA_SetRateMsg(NMEA_Message):
             self.fields.append(str(rate))
         self.fields.append(str(0))
 
+class NMEA_SetBaudMessage(NMEA_Message):
+    def __init__(self, port, baudrate):
+        # $PUBX,41,1,0007,0003,19200,0*25
+        self.fields = [
+            '$PUBX', # message ID
+            '41', # MSG ID
+            port, #UART Port Num
+            # ...etc
+        ]
+
 def read_UBX(device):
     timeout_millis = 1000
     byteval = ''
