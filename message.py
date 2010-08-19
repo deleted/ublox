@@ -6,6 +6,8 @@ from datetime import datetime
 #serial_device = '/dev/cu.usbserial-A900adpX'
 serial_device = '/dev/cu.usbserial-FTALEZL0'
 
+debug = 1
+
 msgtypes = {
     'GLL': b'\xf0\x01',
     'RMC': b'\xf0\x04',
@@ -108,6 +110,11 @@ class NMEA_SetBaudMessage(NMEA_Message):
         ]
 
 def read_UBX(device):
+    def read():
+	x = device.read()
+	if debug and len(x) > 0:
+	    print '[%.6f] %s' % (time.time(), ['%02x' % ord(i) for i in x])
+	return x
     timeout_millis = 1000
     byteval = ''
     t0 = datetime.now()
@@ -115,20 +122,20 @@ def read_UBX(device):
         dt = datetime.now() - t0
         if dt.seconds * 1000 + dt.microseconds / 1000 > timeout_millis:
             return None
-        byteval = device.read()
+        byteval = myread()
     msg = byteval
-    msg += device.read()
+    msg += myread()
     assert msg[-1] == '\x62' # second sync byte
-    msg_id = device.read(2) # msg class and ID
+    msg_id = myread(2) # msg class and ID
     msg += msg_id
-    payload_length_bytes = device.read(2)
+    payload_length_bytes = myread(2)
     msg += payload_length_bytes
     payload_length = struct.unpack('<h', payload_length_bytes)[0]
     payload = ''
     for i in range(payload_length):
-        payload += device.read()
+        payload += myread()
     msg += payload
-    msg += device.read(2) # checksum bytes
+    msg += myread(2) # checksum bytes
     m = UBXMessage('','')
     m.msgid = msg_id
     m.payload = payload
